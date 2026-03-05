@@ -79,6 +79,7 @@ class BaseLearner(object):
         cur_data = cur_dataset.dataset.images[idx]
 
         if size !=0:
+            size = min(size, len(pre_dataset.idxs)) # size=20, 1000->20
             idxs = np.random.choice(range(len(pre_dataset.idxs)), size, replace=False)
             selected_exemplar_data, selected_exemplar_label = pre_data[idxs], pre_labels[idxs]
             
