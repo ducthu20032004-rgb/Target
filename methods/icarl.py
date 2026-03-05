@@ -89,7 +89,7 @@ class iCaRL(BaseLearner):
             np.arange(0, self._total_classes), source="test", mode="test"
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=256, shuffle=False, num_workers=4
+            test_dataset, batch_size=256, shuffle=False, num_workers=0
         )
         self._network.cuda()
         setup_seed(self.seed)
@@ -160,7 +160,7 @@ class iCaRL(BaseLearner):
                     local_dataset = self.combine_dataset(previous_local_dataset, current_local_dataset, self.memory_size)
                     local_dataset = DatasetSplit(local_dataset, range(local_dataset.labels.shape[0]))
 
-                local_train_loader = DataLoader(local_dataset, batch_size=self.args["local_bs"], shuffle=True, num_workers=4)
+                local_train_loader = DataLoader(local_dataset, batch_size=self.args["local_bs"], shuffle=True, num_workers=0)
                 tmp = print_data_stats(idx, local_train_loader)
                 if com !=0:
                     tmp = ""

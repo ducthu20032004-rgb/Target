@@ -52,7 +52,7 @@ class EWC(BaseLearner):
             np.arange(0, self._total_classes), source="test", mode="test"
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=256, shuffle=False, num_workers=4
+            test_dataset, batch_size=256, shuffle=False, num_workers=0
         )
         setup_seed(self.seed)
 
@@ -139,7 +139,7 @@ class EWC(BaseLearner):
             idxs_users = np.random.choice(range(self.args["num_users"]), m, replace=False)
             for idx in idxs_users:
                 local_train_loader = DataLoader(DatasetSplit(train_dataset, user_groups[idx]), 
-                    batch_size=self.args["local_bs"], shuffle=True, num_workers=4)
+                    batch_size=self.args["local_bs"], shuffle=True, num_workers=0)
                 if self._cur_task == 0:
                     w = self._local_update(copy.deepcopy(self._network), local_train_loader, idx)
                 else:
