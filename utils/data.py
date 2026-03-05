@@ -4,8 +4,8 @@ from utils.toolkit import split_images_labels
 import os
 
 
-data_dir = os.path.join(os.environ['HOME'],"datasets")
-
+# data_dir = os.path.join(os.environ['HOME'],"datasets")
+data_dir = os.path.join(os.path.expanduser("~"), "datasets")
 
 class iData(object):
     train_trsf = []

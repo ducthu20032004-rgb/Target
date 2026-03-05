@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from utils.inc_net import IncrementalNet
-from models.base import BaseLearner
+from methods.base import BaseLearner
 from utils.data_manager import partition_data, DatasetSplit, average_weights, setup_seed
 import copy, wandb
 from abc import ABC
@@ -21,8 +21,8 @@ from PIL import Image
 dataset = "cifar100"
 
 if dataset =="cifar100":
-    synthesis_batch_size = 256
-    sample_batch_size = 256
+    synthesis_batch_size = 32
+    sample_batch_size = 32
     g_steps=10  
     is_maml=1
     kd_steps=400    
@@ -49,8 +49,8 @@ if dataset =="cifar100":
     ])
     
 else:
-    synthesis_batch_size = 256
-    sample_batch_size = 256
+    synthesis_batch_size = 32
+    sample_batch_size = 32
     g_steps=50  
     is_maml=0   
     kd_steps=400     
@@ -332,7 +332,7 @@ class KLDiv(nn.Module):
 class GlobalSynthesizer(ABC):
     def __init__(self, teacher, student, generator, nz, num_classes, img_size,
                     init_dataset=None, iterations=100, lr_g=0.1,
-                    synthesis_batch_size=128, sample_batch_size=128, 
+                    synthesis_batch_size=32, sample_batch_size=32, 
                     adv=0.0, bn=1, oh=1,
                     save_dir='run/fast', transform=None, autocast=None, use_fp16=False,
                     normalizer=None, distributed=False, lr_z = 0.01,
@@ -600,6 +600,7 @@ class TARGET(BaseLearner):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 200, eta_min=2e-4)
 
         for it in range(syn_round):
+            print("Synth round", it)
             synthesizer.synthesize() # generate synthetic data
             if it >= warmup:
                 self.kd_train(student, self._network, criterion, optimizer) # kd_steps
@@ -607,7 +608,7 @@ class TARGET(BaseLearner):
                 print("Task {}, Data Generation, Epoch {}/{} =>  Student test_acc: {:.2f}".format(
                     self._cur_task, it + 1, syn_round, test_acc,))
                 scheduler.step()
-                # wandb.log({'Distill {}, accuracy'.format(self._cur_task): test_acc})
+                wandb.log({'Distill {}, accuracy'.format(self._cur_task): test_acc})
 
 
         print("For task {}, data generation completed! ".format(self._cur_task))  
@@ -628,7 +629,7 @@ class TARGET(BaseLearner):
         syn_dataset = UnlabeledImageDataset(data_dir, transform=train_transform, nums=self.nums)
         syn_data_loader = torch.utils.data.DataLoader(
             syn_dataset, batch_size=syn_bs, shuffle=True,
-            num_workers=4, pin_memory=True, )
+            num_workers=0, pin_memory=True, )
         return syn_data_loader
 
     def get_all_syn_data(self):
@@ -636,7 +637,7 @@ class TARGET(BaseLearner):
         syn_dataset = UnlabeledImageDataset(data_dir, transform=train_transform, nums=self.nums)
         loader = torch.utils.data.DataLoader(
             syn_dataset, batch_size=sample_batch_size, shuffle=True,
-            num_workers=4, pin_memory=True, sampler=None)
+            num_workers=0, pin_memory=True, sampler=None)
         return loader
 
 
@@ -658,7 +659,7 @@ class TARGET(BaseLearner):
             np.arange(0, self._total_classes), source="test", mode="test"
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=256, shuffle=False, num_workers=4
+            test_dataset, batch_size=256, shuffle=False, num_workers=0
         )
         setup_seed(self.seed)
         if self._cur_task == 0 and (not os.path.exists(self.save_dir)):
@@ -669,6 +670,17 @@ class TARGET(BaseLearner):
         
         #* for all tasks
         self._fl_train(train_dataset, self.test_loader)
+        checkpoint_dir = "checkpoint"
+        os.makedirs(checkpoint_dir, exist_ok=True)
+
+        checkpoint = {
+            "model": self._network.state_dict(),
+        }
+
+        torch.save(
+            checkpoint,
+            os.path.join(checkpoint_dir, "model_task_{}.pth".format(self._cur_task))
+        )
         if self._cur_task+1 != self.tasks:
             self.data_generation()
 
@@ -733,7 +745,7 @@ class TARGET(BaseLearner):
             idxs_users = np.random.choice(range(self.args["num_users"]), m, replace=False)
             for idx in idxs_users:
                 local_train_loader = DataLoader(DatasetSplit(train_dataset, user_groups[idx]), 
-                    batch_size=self.args["local_bs"], shuffle=True, num_workers=4)
+                    batch_size=self.args["local_bs"], shuffle=True, num_workers=0)
                 if self._cur_task == 0:
                     w = self._local_update(copy.deepcopy(self._network), local_train_loader)
                 else:
