@@ -79,7 +79,7 @@ def args_parser():
     parser.add_argument('--net', type=str, default="resnet32", help='choose a model')
     parser.add_argument('--com_round', type=int, default=100, help='communication rounds')
     parser.add_argument('--num_users', type=int, default=5, help='num of clients')
-    parser.add_argument('--local_bs', type=int, default=32, help='local batch size')
+    parser.add_argument('--local_bs', type=int, default=8, help='local batch size')
     parser.add_argument('--local_ep', type=int, default=5, help='local training epochs')
     parser.add_argument('--beta', type=float, default=0.3, help='control the degree of label skew')
     parser.add_argument('--frac', type=float, default=1.0, help='the fraction of selected clients')
