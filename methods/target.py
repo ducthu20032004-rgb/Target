@@ -21,8 +21,8 @@ from PIL import Image
 dataset = "cifar100"
 
 if dataset =="cifar100":
-    synthesis_batch_size = 8
-    sample_batch_size = 8
+    synthesis_batch_size = 32
+    sample_batch_size = 32
     g_steps=10  
     is_maml=1
     kd_steps=400    
@@ -49,8 +49,8 @@ if dataset =="cifar100":
     ])
     
 else:
-    synthesis_batch_size = 8
-    sample_batch_size = 8
+    synthesis_batch_size = 32
+    sample_batch_size = 32
     g_steps=50  
     is_maml=0   
     kd_steps=400     
@@ -332,7 +332,7 @@ class KLDiv(nn.Module):
 class GlobalSynthesizer(ABC):
     def __init__(self, teacher, student, generator, nz, num_classes, img_size,
                     init_dataset=None, iterations=100, lr_g=0.1,
-                    synthesis_batch_size=8, sample_batch_size=8, 
+                    synthesis_batch_size=32, sample_batch_size=32, 
                     adv=0.0, bn=1, oh=1,
                     save_dir='run/fast', transform=None, autocast=None, use_fp16=False,
                     normalizer=None, distributed=False, lr_z = 0.01,
