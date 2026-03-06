@@ -117,7 +117,51 @@ class BaseLearner(object):
             "model_state_dict": self._network.state_dict(),
         }
         torch.save(save_dict, "{}_{}.pkl".format(filename, self._cur_task))
+    # def load_checkpoint(self, filename):
+    #     checkpoint = torch.load(filename, map_location="cuda")
+    #     self._cur_task = checkpoint["tasks"]
+    #     state_dict = checkpoint["model_state_dict"]
 
+    #     if "fc.weight" in state_dict:
+    #         num_classes = state_dict["fc.weight"].shape[0]
+    #         self._network.update_fc(num_classes)
+    #     self._network.load_state_dict(checkpoint["model_state_dict"])
+    #     self._network.cuda()
+
+    #         # Restore old network for KD loss
+    #     old_state_dict = checkpoint.get("old_model_state_dict", None)
+    #     if old_state_dict is not None:
+    #         self._old_network = self._network.copy().freeze()
+    #         self._old_network.load_state_dict(old_state_dict)
+    #         self._old_network.cuda()
+    #     print(f"Loaded checkpoint from task {self._cur_task}")
+    def load_checkpoint(self, filename,):
+        checkpoint = torch.load(filename, map_location="cuda")
+        self._cur_task = checkpoint["tasks"]
+        self._known_classes = checkpoint.get("known_classes", 0)
+        
+        state_dict = checkpoint["model_state_dict"]
+        if "fc.weight" in state_dict:
+            num_classes = state_dict["fc.weight"].shape[0]
+            self._network.update_fc(num_classes)
+            # If known_classes not saved, derive it from FC size
+            if self._known_classes == 0:
+                self._known_classes = num_classes
+        
+        self._network.load_state_dict(state_dict)
+        self._network.cuda()
+
+        # Restore old network - try checkpoint first, fall back to copying current network
+        old_state_dict = checkpoint.get("old_model_state_dict", None)
+        if old_state_dict is not None:
+            self._old_network = self._network.copy().freeze()
+            self._old_network.load_state_dict(old_state_dict)
+        else:
+            # Fallback: old network = current network at end of last task
+            self._old_network = self._network.copy().freeze()
+        
+        self._old_network.cuda()
+        print(f"Loaded checkpoint from task {self._cur_task}, known_classes={self._known_classes}")
     def after_task(self):
         pass
 
@@ -243,7 +287,7 @@ class BaseLearner(object):
                 [], source="train", mode="test", appendent=(dd, dt)
             )
             idx_loader = DataLoader(
-                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=0
+                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4,pin_memory=True
             )
             vectors, _ = self._extract_vectors(idx_loader)
             vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
@@ -263,7 +307,7 @@ class BaseLearner(object):
                 ret_data=True,
             )   # return dataset for one class, 500 samples
             idx_loader = DataLoader(
-                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=0
+                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4,pin_memory=True
             )
             vectors, _ = self._extract_vectors(idx_loader)  # get feature maps
             vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
@@ -315,7 +359,7 @@ class BaseLearner(object):
                 appendent=(selected_exemplars, exemplar_targets),
             )
             idx_loader = DataLoader(
-                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=0
+                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4,pin_memory=True
             )
             vectors, _ = self._extract_vectors(idx_loader)
             vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
@@ -342,7 +386,7 @@ class BaseLearner(object):
                 [], source="train", mode="test", appendent=(class_data, class_targets)
             )
             class_loader = DataLoader(
-                class_dset, batch_size=batch_size, shuffle=False, num_workers=0
+                class_dset, batch_size=batch_size, shuffle=False, num_workers=4,pin_memory=True
             )
             vectors, _ = self._extract_vectors(class_loader)
             vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
@@ -360,7 +404,7 @@ class BaseLearner(object):
                 ret_data=True,
             )
             class_loader = DataLoader(
-                class_dset, batch_size=batch_size, shuffle=False, num_workers=0
+                class_dset, batch_size=batch_size, shuffle=False, num_workers=4,pin_memory=True
             )
 
             vectors, _ = self._extract_vectors(class_loader)
@@ -412,7 +456,7 @@ class BaseLearner(object):
                 appendent=(selected_exemplars, exemplar_targets),
             )
             exemplar_loader = DataLoader(
-                exemplar_dset, batch_size=batch_size, shuffle=False, num_workers=0
+                exemplar_dset, batch_size=batch_size, shuffle=False, num_workers=4,pin_memory=True
             )
             vectors, _ = self._extract_vectors(exemplar_loader)
             vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T

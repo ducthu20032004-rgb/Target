@@ -9,7 +9,7 @@ from methods.ewc import EWC
 from methods.target import TARGET
 import warnings
 warnings.filterwarnings('ignore')
-
+import torch
 
 def get_learner(model_name, args):
     name = model_name.lower()
@@ -40,17 +40,33 @@ def train(args):
         args["init_cls"],
         args["increment"],
     )
-    learner = get_learner(args["method"], args)
-    cnn_curve, nme_curve = {"top1": [], "top5": []}, {"top1": [], "top5": []}
     
-    # train for each task
-    for task in range(data_manager.nb_tasks):
+
+
+    cnn_curve, nme_curve = {"top1": [], "top5": []}, {"top1": [], "top5": []}
+    learner = get_learner(args["method"], args)
+
+    start_task = 0
+
+    if args["resume"] != "":
+        print("Resuming from checkpoint {}...".format(args["resume"]))
+        learner.load_checkpoint(args["resume"])
+        start_task = learner._cur_task + 1
+
+    for task in range(start_task, data_manager.nb_tasks):
+
         print("All params: {}, Trainable params: {}".format(count_parameters(learner._network), 
-            count_parameters(learner._network, True))) 
+            count_parameters(learner._network, True)))
+         
         learner.incremental_train(data_manager) # train for one task
+
         cnn_accy, nme_accy = learner.eval_task()
         learner.after_task()
 
+        print("Saving checkpoint for task {}... at {}".format(task, os.path.join("checkpoint", f"checkpoint_task{task}.pkl")))
+        learner.save_checkpoint(
+            os.path.join("checkpoint", f"checkpoint_task{task}")
+        )
         print("CNN: {}".format(cnn_accy["grouped"]))
         cnn_curve["top1"].append(cnn_accy["top1"])
         print("CNN top1 curve: {}".format(cnn_curve["top1"]))
@@ -70,8 +86,8 @@ def args_parser():
     parser.add_argument('--project', type=str, default="TARGET", help='wandb project')
     parser.add_argument('--group', type=str, default="exp1", help='wandb group')
     parser.add_argument('--seed', type=int, default=2023, help='random seed')
-    
-
+    parser.add_argument('--resume', type=str, default="")
+    parser.add_argument('--save_ckpt', type=int, default=1, help='1 to save checkpoint')
     # federated continual learning settings
     parser.add_argument('--dataset', type=str, default="cifar100", help='which dataset')
     parser.add_argument('--tasks', type=int, default=5, help='num of tasks')
@@ -99,7 +115,7 @@ if __name__ == '__main__':
     args.num_class = 200 if args.dataset=="tiny_imagenet" else 100 
     args.init_cls = int(args.num_class / args.tasks)
     args.increment = args.init_cls
-
+    
     args.exp_name = f"{args.beta}_{args.method}_{args.exp_name}"
     if args.method == "ours":
         dir = "run"
@@ -110,6 +126,6 @@ if __name__ == '__main__':
     if args.wandb == 1:
         wandb.init(config=args, project=args.project, group=args.group, name=args.exp_name)
     args = vars(args)
-    
+
     train(args)
 
