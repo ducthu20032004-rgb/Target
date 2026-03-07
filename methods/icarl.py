@@ -183,7 +183,7 @@ class iCaRL(BaseLearner):
                     self._cur_task, start_round, total_round, test_acc,))
                 prog_bar.set_description(info)
                 if self.wandb == 1:
-                    wandb.log({'Task_{}, accuracy'.format(self._cur_task): test_acc})
+                    wandb.log({'Task_{}, accuracy'.format(self._cur_task): test_acc},step = com)
 
 
 
