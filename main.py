@@ -63,10 +63,11 @@ def train(args):
         cnn_accy, nme_accy = learner.eval_task()
         learner.after_task()
 
-        print("Saving checkpoint for task {}... at {}".format(task, os.path.join("checkpoint", f"checkpoint_task{task}.pkl")))
+        
         learner.save_checkpoint(
-            os.path.join("checkpoint", f"checkpoint_task{task}")
+            os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}")
         )
+        print("Saving checkpoint for task {}... at {}".format(task, os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}.pkl")))
         print("CNN: {}".format(cnn_accy["grouped"]))
         cnn_curve["top1"].append(cnn_accy["top1"])
         print("CNN top1 curve: {}".format(cnn_curve["top1"]))
@@ -88,12 +89,13 @@ def args_parser():
     parser.add_argument('--seed', type=int, default=2023, help='random seed')
     parser.add_argument('--resume', type=str, default="")
     parser.add_argument('--save_ckpt', type=int, default=1, help='1 to save checkpoint')
+    parser.add_argument('--start_round', type=int, default=0, help='the start round for training, only used when resume from checkpoint')
     # federated continual learning settings
     parser.add_argument('--dataset', type=str, default="cifar100", help='which dataset')
     parser.add_argument('--tasks', type=int, default=5, help='num of tasks')
     parser.add_argument('--method', type=str, default="", help='choose a learner')
     parser.add_argument('--net', type=str, default="resnet32", help='choose a model')
-    parser.add_argument('--com_round', type=int, default=100, help='communication rounds')
+    parser.add_argument('--com_round', type=int, default=1, help='communication rounds')
     parser.add_argument('--num_users', type=int, default=5, help='num of clients')
     parser.add_argument('--local_bs', type=int, default=32, help='local batch size')
     parser.add_argument('--local_ep', type=int, default=5, help='local training epochs')
