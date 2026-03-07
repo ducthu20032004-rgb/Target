@@ -115,6 +115,7 @@ class BaseLearner(object):
         save_dict = {
             "tasks": self._cur_task,
             "model_state_dict": self._network.state_dict(),
+            "round": self.start_round
         }
         torch.save(save_dict, "{}_{}.pkl".format(filename, self._cur_task))
     # def load_checkpoint(self, filename):
@@ -135,11 +136,11 @@ class BaseLearner(object):
     #         self._old_network.load_state_dict(old_state_dict)
     #         self._old_network.cuda()
     #     print(f"Loaded checkpoint from task {self._cur_task}")
-    def load_checkpoint(self, filename,):
+    def load_checkpoint(self, filename):
         checkpoint = torch.load(filename, map_location="cuda")
         self._cur_task = checkpoint["tasks"]
         self._known_classes = checkpoint.get("known_classes", 0)
-        
+        self.start_round = checkpoint.get("start_round", 300)  # 300 cho checkpoint cũ
         state_dict = checkpoint["model_state_dict"]
         if "fc.weight" in state_dict:
             num_classes = state_dict["fc.weight"].shape[0]

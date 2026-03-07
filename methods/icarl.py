@@ -39,6 +39,8 @@ class iCaRL(BaseLearner):
     def after_task(self):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
+        # Fix tạm thời train Icarl xong xóa
+        self.start_round = self.start_round + self.args["com_round"] if hasattr(self, "start_round") else 0
 
     def get_all_previous_dataset(self, data_manager, idx):
         # for second task, self._cur_task=1
@@ -89,7 +91,7 @@ class iCaRL(BaseLearner):
             np.arange(0, self._total_classes), source="test", mode="test"
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=256, shuffle=False, num_workers=0
+            test_dataset, batch_size=256, shuffle=False, num_workers=4,pin_memory=True
         )
         self._network.cuda()
         setup_seed(self.seed)
@@ -142,7 +144,9 @@ class iCaRL(BaseLearner):
     def _fl_train(self, train_dataset, test_loader, data_manager):
         self._network.cuda()
         user_groups = partition_data(train_dataset.labels, beta=self.args["beta"], n_parties=self.args["num_users"])
-        prog_bar = tqdm(range(self.args["com_round"]))
+        start_round = getattr(self,"start_round", 300)
+        total_round = start_round + self.args["com_round"]
+        prog_bar = tqdm(range(start_round,total_round))
         
         for _, com in enumerate(prog_bar):
             local_weights = []
@@ -160,7 +164,7 @@ class iCaRL(BaseLearner):
                     local_dataset = self.combine_dataset(previous_local_dataset, current_local_dataset, self.memory_size)
                     local_dataset = DatasetSplit(local_dataset, range(local_dataset.labels.shape[0]))
 
-                local_train_loader = DataLoader(local_dataset, batch_size=self.args["local_bs"], shuffle=True, num_workers=0)
+                local_train_loader = DataLoader(local_dataset, batch_size=self.args["local_bs"], shuffle=True, num_workers=4, pin_memory=True)
                 tmp = print_data_stats(idx, local_train_loader)
                 if com !=0:
                     tmp = ""
@@ -175,10 +179,11 @@ class iCaRL(BaseLearner):
             if com % 1 == 0:
                 test_acc = self._compute_accuracy(self._network, test_loader)
                 info=("Task {}, Epoch {}/{} =>  Test_accy {:.2f}".format(
-                    self._cur_task, com + 1, self.args["com_round"], test_acc,))
+                    # self._cur_task, com + 1, self.args["com_round"], test_acc,))
+                    self._cur_task, start_round, total_round, test_acc,))
                 prog_bar.set_description(info)
                 if self.wandb == 1:
-                    wandb.log({'Task_{}, accuracy'.format(self._cur_task): test_acc})
+                    wandb.log({'Task_{}, accuracy'.format(self._cur_task): test_acc},step = com)
 
 
 
