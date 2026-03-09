@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "Debug FCL Target",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--group", "5tasks_cifar10",
+                "--method", "ours",
+                "--tasks", "5",
+                "--beta", "0.5",
+                "--com_round", "1",
+                // "--resume", "checkpoint/checkpoint_task2_2.pkl"
+            ],
+            "python": "C:/Users/admin/anaconda3/envs/FCL/python.exe"
+        }
+    ]
+}

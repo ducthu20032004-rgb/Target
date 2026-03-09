@@ -629,7 +629,7 @@ class TARGET(BaseLearner):
         syn_dataset = UnlabeledImageDataset(data_dir, transform=train_transform, nums=self.nums)
         syn_data_loader = torch.utils.data.DataLoader(
             syn_dataset, batch_size=syn_bs, shuffle=True,
-            num_workers=0, pin_memory=True, )
+            num_workers=4, pin_memory=True, )
         return syn_data_loader
 
     def get_all_syn_data(self):
@@ -637,7 +637,7 @@ class TARGET(BaseLearner):
         syn_dataset = UnlabeledImageDataset(data_dir, transform=train_transform, nums=self.nums)
         loader = torch.utils.data.DataLoader(
             syn_dataset, batch_size=sample_batch_size, shuffle=True,
-            num_workers=0, pin_memory=True, sampler=None)
+            num_workers=4, pin_memory=True, sampler=None)
         return loader
 
 
@@ -647,7 +647,8 @@ class TARGET(BaseLearner):
         self._total_classes = self._known_classes + data_manager.get_task_size(
             self._cur_task
         )
-        self._network.update_fc(self._total_classes)
+
+        # self._network.update_fc(self._total_classes)
         print("Learning on {}-{}".format(self._known_classes, self._total_classes))
 
         train_dataset = data_manager.get_dataset(   #* get the data for one task
@@ -655,11 +656,13 @@ class TARGET(BaseLearner):
             source="train",
             mode="train",
         )
+        total_all_classes = data_manager.get_task_size(0)  # hoặc lấy tổng số classes
+        # Dùng toàn bộ classes từ 0 đến max
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test", mode="test"
+            np.arange(0, self.tasks * self.each_task), source="test", mode="test"
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=256, shuffle=False, num_workers=0
+            test_dataset, batch_size=256, shuffle=False, num_workers=4
         )
         setup_seed(self.seed)
         if self._cur_task == 0 and (not os.path.exists(self.save_dir)):
@@ -715,16 +718,22 @@ class TARGET(BaseLearner):
                 fake_targets = labels - self._known_classes
                 output = model(images)["logits"]
                 # for new tasks
-                loss_ce = F.cross_entropy(output[:, self._known_classes :], fake_targets)
+                start = self._known_classes
+                end = self._total_classes
+                loss_ce = F.cross_entropy(output[:, start:end], fake_targets)
                 s_out = model(syn_input)["logits"]
                 with torch.no_grad():
                     t_out = teacher(syn_input.detach())["logits"]
                     total_syn += syn_input.shape[0]
                     total_local += images.shape[0]
                 # for old task
+                # for old task
+                s_logits = s_out[:, :self._known_classes]
+                t_logits = t_out[:, :self._known_classes]
+
                 loss_kd = _KD_loss(
-                    s_out[:, : self._known_classes],   # logits on previous tasks
-                    t_out.detach(),
+                    s_logits,
+                    t_logits.detach(),
                     2,
                 )
                 loss = loss_ce + self.args["kd"]*loss_kd 
@@ -745,7 +754,7 @@ class TARGET(BaseLearner):
             idxs_users = np.random.choice(range(self.args["num_users"]), m, replace=False)
             for idx in idxs_users:
                 local_train_loader = DataLoader(DatasetSplit(train_dataset, user_groups[idx]), 
-                    batch_size=self.args["local_bs"], shuffle=True, num_workers=0)
+                    batch_size=self.args["local_bs"], shuffle=True, num_workers=4)
                 if self._cur_task == 0:
                     w = self._local_update(copy.deepcopy(self._network), local_train_loader)
                 else:
@@ -767,8 +776,8 @@ class TARGET(BaseLearner):
                 info=("Task {}, Epoch {}/{} =>  Test_accy {:.2f}".format(
                     self._cur_task, com + 1, self.args["com_round"], test_acc,))
                 prog_bar.set_description(info)
-                if self.wandb == 1:
-                    wandb.log({'Task_{}, accuracy'.format(self._cur_task): test_acc})
+                # if self.wandb == 1:
+                #     wandb.log({'train_acc_task_{}'.format(self._cur_task): test_acc})
         
 
 

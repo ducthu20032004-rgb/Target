@@ -60,7 +60,7 @@ def train(args):
          
         learner.incremental_train(data_manager) # train for one task
 
-        cnn_accy, nme_accy = learner.eval_task()
+        cnn_accy = learner.eval_task()
         learner.after_task()
 
         
@@ -68,9 +68,9 @@ def train(args):
             os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}")
         )
         print("Saving checkpoint for task {}... at {}".format(task, os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}.pkl")))
-        print("CNN: {}".format(cnn_accy["grouped"]))
-        cnn_curve["top1"].append(cnn_accy["top1"])
-        print("CNN top1 curve: {}".format(cnn_curve["top1"]))
+        print("CNN results:")
+        for k, v in cnn_accy.items():
+            print(f"{k}: {v:.2f}")
 
 
 
@@ -94,10 +94,10 @@ def args_parser():
     parser.add_argument('--dataset', type=str, default="cifar100", help='which dataset')
     parser.add_argument('--tasks', type=int, default=5, help='num of tasks')
     parser.add_argument('--method', type=str, default="", help='choose a learner')
-    parser.add_argument('--net', type=str, default="resnet32", help='choose a model')
+    parser.add_argument('--net', type=str, default="resnet18", help='choose a model')
     parser.add_argument('--com_round', type=int, default=100, help='communication rounds')
     parser.add_argument('--num_users', type=int, default=5, help='num of clients')
-    parser.add_argument('--local_bs', type=int, default=32, help='local batch size')
+    parser.add_argument('--local_bs', type=int, default=128, help='local batch size')
     parser.add_argument('--local_ep', type=int, default=5, help='local training epochs')
     parser.add_argument('--beta', type=float, default=0.3, help='control the degree of label skew')
     parser.add_argument('--frac', type=float, default=1.0, help='the fraction of selected clients')
