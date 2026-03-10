@@ -637,22 +637,22 @@ class TARGET(BaseLearner):
         syn_dataset = UnlabeledImageDataset(data_dir, transform=train_transform, nums=self.nums)
         loader = torch.utils.data.DataLoader(
             syn_dataset, batch_size=sample_batch_size, shuffle=True,
-            num_workers=4, pin_memory=True, sampler=None)
+            num_workers=0, pin_memory=True, sampler=None)
         return loader
 
 
 
     def incremental_train(self, data_manager):
         self._cur_task += 1
-        self._total_classes = self._known_classes + data_manager.get_task_size(
-            self._cur_task
-        )
-
+        # self._total_classes = self._known_classes + data_manager.get_task_size(
+        #     self._cur_task
+        # )
+        self._total_classes = 100
         # self._network.update_fc(self._total_classes)
-        print("Learning on {}-{}".format(self._known_classes, self._total_classes))
-
+        # print("Learning on {}-{}".format(self._known_classes, self._total_classes))
+        print("Leanring on task {}, total classes: {}".format(self._cur_task, self._total_classes))
         train_dataset = data_manager.get_dataset(   #* get the data for one task
-            np.arange(self._known_classes, self._total_classes),
+            np.arange(0, self._total_classes),
             source="train",
             mode="train",
         )
@@ -662,7 +662,7 @@ class TARGET(BaseLearner):
             np.arange(0, self.tasks * self.each_task), source="test", mode="test"
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=256, shuffle=False, num_workers=4
+            test_dataset, batch_size=256, shuffle=False, num_workers=0
         )
         setup_seed(self.seed)
         if self._cur_task == 0 and (not os.path.exists(self.save_dir)):
@@ -718,9 +718,10 @@ class TARGET(BaseLearner):
                 fake_targets = labels - self._known_classes
                 output = model(images)["logits"]
                 # for new tasks
-                start = self._known_classes
-                end = self._total_classes
-                loss_ce = F.cross_entropy(output[:, start:end], fake_targets)
+                # start = self._known_classes
+                # end = self._total_classes
+                # loss_ce = F.cross_entropy(output[:, start:end], fake_targets)
+                loss_ce = F.cross_entropy(output, labels)
                 s_out = model(syn_input)["logits"]
                 with torch.no_grad():
                     t_out = teacher(syn_input.detach())["logits"]
@@ -754,7 +755,7 @@ class TARGET(BaseLearner):
             idxs_users = np.random.choice(range(self.args["num_users"]), m, replace=False)
             for idx in idxs_users:
                 local_train_loader = DataLoader(DatasetSplit(train_dataset, user_groups[idx]), 
-                    batch_size=self.args["local_bs"], shuffle=True, num_workers=4)
+                    batch_size=self.args["local_bs"], shuffle=True, num_workers=0)
                 if self._cur_task == 0:
                     w = self._local_update(copy.deepcopy(self._network), local_train_loader)
                 else:
@@ -776,8 +777,9 @@ class TARGET(BaseLearner):
                 info=("Task {}, Epoch {}/{} =>  Test_accy {:.2f}".format(
                     self._cur_task, com + 1, self.args["com_round"], test_acc,))
                 prog_bar.set_description(info)
-                # if self.wandb == 1:
-                #     wandb.log({'train_acc_task_{}'.format(self._cur_task): test_acc})
+                if self.wandb == 1:
+                    wandb.log({'Target.py Task_{}, accuracy'.format(self._cur_task): test_acc})
+   
         
 
 

@@ -1,5 +1,6 @@
 import copy
 import logging
+from tracemalloc import start
 import numpy as np
 import torch
 from torch import nn
@@ -166,77 +167,72 @@ class BaseLearner(object):
         print(f"Loaded checkpoint from task {self._cur_task}, known_classes={self._known_classes}")
     def after_task(self):
         pass
-    # Single task evaluation, return accuracy dict
-    # def _evaluate(self, y_pred, y_true):
-    #     ret = {}
-    #     grouped = accuracy(y_pred.T[0], y_true, self._known_classes, increment=self.each_task)
-    #     num_heads = self._total_classes // self.each_task
-    #     for i in range(num_heads):
-    #         start = i * self.each_task
-    #         end = start + self.each_task
-
-    #         mask = (y_true >= start) & (y_true < end)
-    #         acc = (y_pred[mask,0] == y_true[mask]).mean()*100
-    #         ret[f"head{i}"] = acc
-    #     ret["grouped"] = grouped
-    #     ret["top1"] = grouped["total"]
-    #     # ret["top{}".format(self.topk)] = np.around(
-    #     #     (y_pred.T == np.tile(y_true, (self.topk, 1))).sum() * 100 / len(y_true),
-    #     #     decimals=2,
-    #     # )
-
-    #     return ret
 
     def _evaluate(self, y_pred, y_true):
         ret = {}
-        
-        for i in range(self.tasks):
-            start = i * self.each_task
-            end = start + self.each_task
-            # Chỉ tính acc trên samples thuộc task i
-            mask = (y_true >= start) & (y_true < end)
-            if mask.sum() > 0:
-                acc = (y_pred[mask, i] == y_true[mask]).mean() * 100
-            else:
-                acc = 0.0
-            ret[f"head{i}"] = acc
-
-        # top1: overall accuracy - với mỗi sample, dùng đúng head của nó
-        correct = 0
-        for i in range(self.tasks):
-            start = i * self.each_task
-            end = start + self.each_task
-            mask = (y_true >= start) & (y_true < end)
-            if mask.sum() > 0:
-                correct += (y_pred[mask, i] == y_true[mask]).sum()
-        ret["top1"] = correct / len(y_true) * 100
+        grouped = accuracy(y_pred.T[0], y_true, self._total_classes, increment=self.each_task)
+        ret["grouped"] = grouped
+        ret["top1"] = grouped["total"]
+        ret["top{}".format(self.topk)] = np.around(
+            (y_pred.T == np.tile(y_true, (self.topk, 1))).sum() * 100 / len(y_true),
+            decimals=2,
+        )
 
         return ret
+
+
+
+    # def _evaluate(self, y_pred, y_true):
+    #     ret = {}
+        
+    #     for i in range(self.tasks):
+    #         start = i * self.each_task
+    #         end = start + self.each_task
+    #         # Chỉ tính acc trên samples thuộc task i
+    #         mask = (y_true >= start) & (y_true < end)
+    #         if mask.sum() > 0:
+    #             acc = (y_pred[mask, i] == y_true[mask]).mean() * 100
+    #         else:
+    #             acc = 0.0
+    #         ret[f"head{i}"] = acc
+
+    #     # top1: overall accuracy - với mỗi sample, dùng đúng head của nó
+    #     correct = 0
+    #     for i in range(self.tasks):
+    #         start = i * self.each_task
+    #         end = start + self.each_task
+    #         mask = (y_true >= start) & (y_true < end)
+    #         if mask.sum() > 0:
+    #             correct += (y_pred[mask, i] == y_true[mask]).sum()
+    #     ret["top1"] = correct / len(y_true) * 100
+
+    #     return ret
 
     def eval_task(self):
         y_pred, y_true = self._eval_cnn(self.test_loader)
         cnn_accy = self._evaluate(y_pred, y_true)
 
-        # if hasattr(self, "_class_means"):
-        #     y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
-        #     nme_accy = self._evaluate(y_pred, y_true)
-        # else:
-        #     nme_accy = None
-        row = []
-        for i in range(self.tasks):
-            row.append(cnn_accy[f"head{i}"])
+        if hasattr(self, "_class_means"):
+            y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
+            nme_accy = self._evaluate(y_pred, y_true)
+        else:
+            nme_accy = None
+        # row = []
+        # for i in range(self.tasks):
+        #     row.append(cnn_accy[f"head{i}"])
 
-        self.acc_matrix.append(row)
-        print("Current accuracy matrix:")
-        for row in self.acc_matrix:
-            print(row)
+        # self.acc_matrix.append(row)
+        # print("Current accuracy matrix:")
+        # for row in self.acc_matrix:
+        #     print(row)
 
         # Mỗi head là 1 line riêng, cùng trục x = current_task
         if self.wandb == 1:
             log_dict = {"current_task": self._cur_task}
-            for i in range(self.tasks):
-                log_dict[f"Task_{i}_acc"] = cnn_accy[f"head{i}"]
-            log_dict["top1_overall"] = cnn_accy["top1"]
+            # for i in range(self.tasks):
+            #     log_dict[f"Task_{i}_acc"] = cnn_accy[f"head{i}"]
+            # log_dict["top1_overall"] = cnn_accy["top1"]
+            log_dict["Task_{}_acc".format(self._cur_task)] = cnn_accy["top1"]
             wandb.log(log_dict)   # KHÔNG dùng step= ở đây
         return cnn_accy #, nme_accy
 
@@ -276,44 +272,61 @@ class BaseLearner(object):
 
         return np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
-    def _eval_cnn(self, loader):
+    # def _eval_cnn(self, loader):
 
+    #     self._network.eval()
+    #     y_pred, y_true = [], []
+
+    #     num_tasks = self.tasks
+    #     each_task = self.each_task
+
+    #     for _, (_, inputs, targets) in enumerate(loader):
+
+    #         inputs = inputs.cuda()
+
+    #         with torch.no_grad():
+    #             outputs = self._network(inputs)["logits"]   # [bs, 100]
+
+    #         batch_preds = []
+
+    #         for task in range(num_tasks):
+
+    #             # start = task * each_task
+    #             # end = start + each_task
+
+    #             # logits = outputs[:, start:end]              # logits of that head
+
+    #             preds = torch.argmax(outputs, dim=1)         # 0-19 inside head
+    #             # preds = preds + start                       # convert → global class id
+
+    #         #     batch_preds.append(preds)
+
+    #         # predicts = torch.stack(batch_preds, dim=1)      # [bs, heads]
+
+    #             y_pred.append(preds.cpu().numpy())
+    #             y_true.append(targets.cpu().numpy())
+
+    #     y_pred = np.concatenate(y_pred, axis=0)
+    #     y_true = np.concatenate(y_true, axis=0)
+
+    #     return y_pred, y_true
+
+    def _eval_cnn(self, loader):
         self._network.eval()
         y_pred, y_true = [], []
-
-        num_tasks = self.tasks
-        each_task = self.each_task
-
         for _, (_, inputs, targets) in enumerate(loader):
-
             inputs = inputs.cuda()
-
             with torch.no_grad():
-                outputs = self._network(inputs)["logits"]   # [bs, 100]
-
-            batch_preds = []
-
-            for task in range(num_tasks):
-
-                start = task * each_task
-                end = start + each_task
-
-                logits = outputs[:, start:end]              # logits of that head
-
-                preds = torch.argmax(logits, dim=1)         # 0-19 inside head
-                preds = preds + start                       # convert → global class id
-
-                batch_preds.append(preds)
-
-            predicts = torch.stack(batch_preds, dim=1)      # [bs, heads]
-
+                outputs = self._network(inputs)["logits"]
+            predicts = torch.topk(
+                outputs, k=self.topk, dim=1, largest=True, sorted=True
+            )[
+                1
+            ]  # [bs, topk]
             y_pred.append(predicts.cpu().numpy())
             y_true.append(targets.cpu().numpy())
 
-        y_pred = np.concatenate(y_pred, axis=0)
-        y_true = np.concatenate(y_true, axis=0)
-
-        return y_pred, y_true
+        return np.concatenate(y_pred), np.concatenate(y_true)  # [N, topk]
 
     def _eval_nme(self, loader, class_means):
         self._network.eval()
@@ -371,7 +384,7 @@ class BaseLearner(object):
                 [], source="train", mode="test", appendent=(dd, dt)
             )
             idx_loader = DataLoader(
-                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4,pin_memory=True
+                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True
             )
             vectors, _ = self._extract_vectors(idx_loader)
             vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T

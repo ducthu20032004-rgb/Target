@@ -98,10 +98,11 @@ class IncrementalNet(BaseNet):
         self.tasks = args["tasks"]
         self.init_cls = args["init_cls"]
 
-        self.heads = nn.ModuleList([
-            SimpleLinear(self.feature_dim, self.init_cls)
-            for _ in range(self.tasks)
-        ])
+        self.fc = SimpleLinear(self.feature_dim, 100)   
+        # self.heads = nn.ModuleList([
+        #     SimpleLinear(self.feature_dim, self.init_cls)
+        #     for _ in range(self.tasks)
+        # ])
 
     def update_fc(self, nb_classes):
         # fc = self.generate_fc(self.feature_dim, nb_classes)
@@ -136,12 +137,17 @@ class IncrementalNet(BaseNet):
         features = x["features"]
         outputs = []
 
-        for head in self.heads:
-            outputs.append(head(features)["logits"])
-
-        logits = torch.cat(outputs, dim=1)
+        # for head in self.heads:
+        #     outputs.append(head(features)["logits"])
+        logits = self.fc(features)["logits"]
         out = {"logits": logits, "features": features}
         out.update(x)
+        # Multiheads
+        # logits = torch.cat(outputs, dim=1)
+        # out = {"logits": logits, "features": features}
+        # out.update(x)
+
+
         # if hasattr(self, "gradcam") and self.gradcam:
         #     out["gradcam_gradients"] = self._gradcam_gradients
         #     out["gradcam_activations"] = self._gradcam_activations
