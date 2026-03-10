@@ -637,7 +637,7 @@ class TARGET(BaseLearner):
         syn_dataset = UnlabeledImageDataset(data_dir, transform=train_transform, nums=self.nums)
         loader = torch.utils.data.DataLoader(
             syn_dataset, batch_size=sample_batch_size, shuffle=True,
-            num_workers=0, pin_memory=True, sampler=None)
+            num_workers=4, pin_memory=True, sampler=None)
         return loader
 
 
