@@ -70,11 +70,16 @@ def train(args):
         print("Saving checkpoint for task {}... at {}".format(task, os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}.pkl")))
         print("CNN results:")
         for k, v in cnn_accy.items():
-            print(f"{k}: {v:.2f}")
+            if isinstance(v, float) or isinstance(v, int):
+                print(f"{k}: {v:.2f}")
+            else:
+                print(f"{k}: {v}")
         print("NME results:")
         for k, v in nme_accy.items():
-            print(f"{k}: {v:.2f}")
-
+            if isinstance(v, float) or isinstance(v, int):
+                print(f"{k}: {v:.2f}")
+            else:
+                print(f"{k}: {v}")
 
 
 
