@@ -769,9 +769,8 @@ class TARGET(BaseLearner):
                 info=("Task {}, Epoch {}/{} =>  Test_accy {:.2f}".format(
                     self._cur_task, com + 1, self.args["com_round"], test_acc,))
                 prog_bar.set_description(info)
-                print("wandb run:", wandb.run)
-                if self.wandb == 1:
-                    
+                
+                if self.args["wandb"] == 1:
                     wandb.log({'Target.py Task_{}, accuracy'.format(self._cur_task): test_acc})
    
         
