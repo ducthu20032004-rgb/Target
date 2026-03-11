@@ -60,7 +60,7 @@ def train(args):
          
         learner.incremental_train(data_manager) # train for one task
 
-        cnn_accy = learner.eval_task()
+        cnn_accy, nme_accy = learner.eval_task()
         learner.after_task()
 
         
@@ -71,8 +71,9 @@ def train(args):
         print("CNN results:")
         for k, v in cnn_accy.items():
             print(f"{k}: {v:.2f}")
-
-
+        print("NME results:")
+        for k, v in nme_accy.items():
+            print(f"{k}: {v:.2f}")
 
 
 
