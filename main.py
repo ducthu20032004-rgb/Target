@@ -74,12 +74,7 @@ def train(args):
                 print(f"{k}: {v:.2f}")
             else:
                 print(f"{k}: {v}")
-        print("NME results:")
-        for k, v in nme_accy.items():
-            if isinstance(v, float) or isinstance(v, int):
-                print(f"{k}: {v:.2f}")
-            else:
-                print(f"{k}: {v}")
+
 
 
 
