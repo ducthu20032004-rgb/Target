@@ -771,7 +771,7 @@ class TARGET(BaseLearner):
                 prog_bar.set_description(info)
                 
                 if self.args["wandb"] == 1:
-                    wandb.log({'Target.py Task_{}, accuracy'.format(self._cur_task): test_acc})
+                    wandb.log({'Target.py Average accuracy': test_acc})
    
         
 
