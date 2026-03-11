@@ -48,7 +48,7 @@ class BaseNet(nn.Module):
         super(BaseNet, self).__init__()
 
         self.convnet = get_convnet(args, pretrained)
-        self.fc = nn.ModuleList()
+        self.fc = SimpleLinear(self.feature_dim, 100)
 
     @property
     def feature_dim(self):
@@ -91,21 +91,15 @@ class BaseNet(nn.Module):
 class IncrementalNet(BaseNet):
     def __init__(self, args, pretrained, gradcam=False):
         super().__init__(args, pretrained)
-        # self.gradcam = gradcam
-        # if hasattr(self, "gradcam") and self.gradcam:
-        #     self._gradcam_hooks = [None, None]
-        #     self.set_gradcam_hook()
-        self.tasks = args["tasks"]
-        self.init_cls = args["init_cls"]
-
-        self.fc = SimpleLinear(self.feature_dim, 100)   
-        # self.heads = nn.ModuleList([
-        #     SimpleLinear(self.feature_dim, self.init_cls)
-        #     for _ in range(self.tasks)
-        # ])
+        self.gradcam = gradcam
+        if hasattr(self, "gradcam") and self.gradcam:
+            self._gradcam_hooks = [None, None]
+            self.set_gradcam_hook()
 
     def update_fc(self, nb_classes):
-        # fc = self.generate_fc(self.feature_dim, nb_classes)
+        # if not isinstance(self.fc, SimpleLinear):  # check đúng kiểu
+        #     self.fc = self.generate_fc(self.feature_dim, 100)
+        pass
         # if self.fc is not None:
         #     nb_output = self.fc.out_features
         #     weight = copy.deepcopy(self.fc.weight.data)
@@ -115,7 +109,6 @@ class IncrementalNet(BaseNet):
 
         # del self.fc
         # self.fc = fc
-        pass
 
     def weight_align(self, increment):
         weights = self.fc.weight.data
@@ -134,26 +127,13 @@ class IncrementalNet(BaseNet):
 
     def forward(self, x):
         x = self.convnet(x)
-        features = x["features"]
-        outputs = []
-
-        # for head in self.heads:
-        #     outputs.append(head(features)["logits"])
-        logits = self.fc(features)["logits"]
-        out = {"logits": logits, "features": features}
+        out = self.fc(x["features"])
         out.update(x)
-        # Multiheads
-        # logits = torch.cat(outputs, dim=1)
-        # out = {"logits": logits, "features": features}
-        # out.update(x)
-
-
-        # if hasattr(self, "gradcam") and self.gradcam:
-        #     out["gradcam_gradients"] = self._gradcam_gradients
-        #     out["gradcam_activations"] = self._gradcam_activations
+        if hasattr(self, "gradcam") and self.gradcam:
+            out["gradcam_gradients"] = self._gradcam_gradients
+            out["gradcam_activations"] = self._gradcam_activations
 
         return out
-
     def unset_gradcam_hook(self):
         self._gradcam_hooks[0].remove()
         self._gradcam_hooks[1].remove()

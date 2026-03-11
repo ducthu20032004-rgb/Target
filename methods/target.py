@@ -551,7 +551,8 @@ class TARGET(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
         self._network = IncrementalNet(args, False)
-                
+        
+              
     def after_task(self):
         self._known_classes = self._total_classes
         self._old_network = self._network.copy().freeze()
@@ -644,25 +645,24 @@ class TARGET(BaseLearner):
 
     def incremental_train(self, data_manager):
         self._cur_task += 1
-        # self._total_classes = self._known_classes + data_manager.get_task_size(
-        #     self._cur_task
-        # )
-        self._total_classes = 100
-        # self._network.update_fc(self._total_classes)
-        # print("Learning on {}-{}".format(self._known_classes, self._total_classes))
-        print("Leanring on task {}, total classes: {}".format(self._cur_task, self._total_classes))
+        self._total_classes = self._known_classes + data_manager.get_task_size(
+            self._cur_task
+        )
+        # self._network.update_fc()
+        print("Learning on {}-{}".format(self._known_classes, self._total_classes))
+        
         train_dataset = data_manager.get_dataset(   #* get the data for one task
-            np.arange(0, self._total_classes),
+            np.arange(self._known_classes, self._total_classes),
             source="train",
             mode="train",
         )
         total_all_classes = data_manager.get_task_size(0)  # hoặc lấy tổng số classes
         # Dùng toàn bộ classes từ 0 đến max
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self.tasks * self.each_task), source="test", mode="test"
+            np.arange(0, self._total_classes), source="test", mode="test"
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=256, shuffle=False, num_workers=0
+            test_dataset, batch_size=256, shuffle=False, num_workers=4
         )
         setup_seed(self.seed)
         if self._cur_task == 0 and (not os.path.exists(self.save_dir)):
@@ -687,7 +687,7 @@ class TARGET(BaseLearner):
         if self._cur_task+1 != self.tasks:
             self.data_generation()
 
-
+    # Train not synthetic data, but the local data for each client in the first task
     def _local_update(self, model, train_data_loader):
         model.train()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
@@ -695,14 +695,14 @@ class TARGET(BaseLearner):
             for batch_idx, (_, images, labels) in enumerate(train_data_loader):
                 images, labels = images.cuda(), labels.cuda()
                 output = model(images)["logits"]
-                loss = F.cross_entropy(output, labels) 
+                loss = F.cross_entropy(output[:,:20], labels) 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
         return model.state_dict()
 
 
-
+    # Train with both local data and synthetic data for each client in the later tasks, and use KD loss for old tasks
     def _local_finetune(self, teacher, model, train_data_loader, task_id, client_id):
         # global print_flag
         model.train()
@@ -716,25 +716,17 @@ class TARGET(BaseLearner):
             for batch_idx, ((_, images, labels), syn_input) in iter_loader:
                 images, labels, syn_input = images.cuda(), labels.cuda(), syn_input.cuda()
                 fake_targets = labels - self._known_classes
-                output = model(images)["logits"]
-                # for new tasks
-                # start = self._known_classes
-                # end = self._total_classes
-                # loss_ce = F.cross_entropy(output[:, start:end], fake_targets)
-                loss_ce = F.cross_entropy(output, labels)
+                output = model(images)["logits"] # [bs,100]
+                loss_ce = F.cross_entropy(output[:, self._known_classes :self._total_classes], fake_targets)
                 s_out = model(syn_input)["logits"]
                 with torch.no_grad():
                     t_out = teacher(syn_input.detach())["logits"]
                     total_syn += syn_input.shape[0]
                     total_local += images.shape[0]
                 # for old task
-                # for old task
-                s_logits = s_out[:, :self._known_classes]
-                t_logits = t_out[:, :self._known_classes]
-
                 loss_kd = _KD_loss(
-                    s_logits,
-                    t_logits.detach(),
+                    s_out[:, : self._known_classes],   # logits on previous tasks
+                    t_out[:, : self._known_classes],   # teacher's logits on previous tasks
                     2,
                 )
                 loss = loss_ce + self.args["kd"]*loss_kd 
@@ -744,7 +736,7 @@ class TARGET(BaseLearner):
 
         return model.state_dict(), total_syn, total_local
 
-
+    # 
     def _fl_train(self, train_dataset, test_loader):
         self._network.cuda()
         user_groups = partition_data(train_dataset.labels, beta=self.args["beta"], n_parties=self.args["num_users"])
@@ -755,7 +747,7 @@ class TARGET(BaseLearner):
             idxs_users = np.random.choice(range(self.args["num_users"]), m, replace=False)
             for idx in idxs_users:
                 local_train_loader = DataLoader(DatasetSplit(train_dataset, user_groups[idx]), 
-                    batch_size=self.args["local_bs"], shuffle=True, num_workers=0)
+                    batch_size=self.args["local_bs"], shuffle=True, num_workers=4)
                 if self._cur_task == 0:
                     w = self._local_update(copy.deepcopy(self._network), local_train_loader)
                 else:

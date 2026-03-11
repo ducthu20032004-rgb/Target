@@ -64,13 +64,13 @@ def train(args):
         learner.after_task()
 
         
-        learner.save_checkpoint(
-            os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}")
-        )
-        print("Saving checkpoint for task {}... at {}".format(task, os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}.pkl")))
-        print("CNN results:")
-        for k, v in cnn_accy.items():
-            print(f"{k}: {v:.2f}")
+        # learner.save_checkpoint(
+        #     os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}")
+        # )
+        # print("Saving checkpoint for task {}... at {}".format(task, os.path.join("/kaggle/working/Target/checkpoint", f"checkpoint_task{task}.pkl")))
+        # print("CNN results:")
+        # for k, v in cnn_accy.items():
+        #     print(f"{k}: {v:.2f}")
 
 
 
