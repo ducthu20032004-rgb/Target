@@ -659,7 +659,7 @@ class TARGET(BaseLearner):
         total_all_classes = data_manager.get_task_size(0)  # hoặc lấy tổng số classes
         # Dùng toàn bộ classes từ 0 đến max
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test", mode="test"
+            np.arange(0, 100), source="test", mode="test"
         )
         self.test_loader = DataLoader(
             test_dataset, batch_size=256, shuffle=False, num_workers=4

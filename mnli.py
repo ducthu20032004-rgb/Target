@@ -3,23 +3,20 @@ import matplotlib.pyplot as plt
 
 # Từ điển ánh xạ label → màu
 colors = {
-    'Task 0': 'blue',
-    'Task 1': 'orange',
-    'Task 2': 'red',
-    'Task 3': 'green',
-    'Task 4': 'purple',
+    'heads update': 'blue',
+    '100_heads': 'orange',
     # 'FFA-LoRA': 'orange',
     # 'FedSA-LoRA': 'red',
     # 'FLoRA-CA': 'black',
 }
 
 # Custom labels bạn muốn vẽ
-custom_labels = ['Task 0', 'Task 1', 'Task 2', 'Task 3', 'Task 4']
+custom_labels = ['heads update', '100_heads']
 
 # Dữ liệu
-df = pd.read_csv('Task_all_acc.csv')
+df = pd.read_csv('task_acc.csv')
 x = df.iloc[:, 0]
-max_columns = [col for col in df.columns if col.endswith('_acc')]
+max_columns = [col for col in df.columns if col.endswith('_head')]
 
 # Map label to columns theo thứ tự custom_labels
 label_to_column = dict(zip(custom_labels, max_columns))
@@ -56,7 +53,7 @@ for label in final_labels:
 # Giao diện
 plt.xlabel('Task Steps')
 plt.ylabel('Acc')
-plt.title('Task all Fixed 5 heads Accuracy')
+plt.title('Task head update follow class vs 100 heads fixed')
 plt.legend()
 plt.grid(True)
 plt.xlim(left=0, right=4)
